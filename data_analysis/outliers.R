@@ -9,16 +9,6 @@
 # Outputs CSV with outlier flags and saves boxplots highlighting outliers.
 # =============================================================================
 
-rm(list=ls())
-library(dplyr)
-library(ggplot2)
-
-# ------------------------------
-# Load data
-# ------------------------------
-data <- read.csv("final_data.txt")
-cat_cols <- c("ocr_library", "document_type", "dataset", "language", "sample_size")
-data[cat_cols] <- lapply(data[cat_cols], as.factor)
 
 metrics <- c("energy","runtime","memory")
 
