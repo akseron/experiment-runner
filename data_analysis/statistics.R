@@ -7,11 +7,8 @@
 #
 # Features:
 #   - Descriptive statistics (mean, median, SD) for energy, runtime, memory
-#   - Visualizations: boxplots, density plots, scatter plots, 2x2 grids, Q-Q plots
-#   - Assumption checks: Shapiro-Wilk normality, paired difference normality
-#   - RQ1: Paired comparisons (t-test or Wilcoxon) + effect sizes (Cohen's d / Cliff's delta)
-#   - RQ2: Correlations (Pearson or Spearman)
-#   - Generic pairwise Wilcoxon + Cliff's delta for all two-level factors
+#   - Visualizations: boxplots, density plots, scatter plots, Q-Q plots
+#   - Assumption checks: Shapiro-Wilk normality
 #   - Exports results in "results/" and figures in "figures/"
 # 
 # Adapted from the replication package by Malavolta et al., EASE 2022:
@@ -22,8 +19,6 @@ rm(list=ls())
 
 library(ggplot2)
 library(gridExtra)
-library(dplyr)
-library(tidyr)
 library(effsize)
 
 # ------------------------------
@@ -68,10 +63,13 @@ desc_stats <- data %>%
   group_by(ocr_library, document_type, dataset, language, sample_size) %>%
   summarise(
     mean_energy = mean(energy, na.rm=TRUE),
+    median_energy = median(energy, na.rm=TRUE),
     sd_energy = sd(energy, na.rm=TRUE),
     mean_runtime = mean(runtime, na.rm=TRUE),
+    median_runtime = median(runtime, na.rm=TRUE),
     sd_runtime = sd(runtime, na.rm=TRUE),
     mean_memory = mean(memory, na.rm=TRUE),
+    median_memory = median(memory, na.rm=TRUE),
     sd_memory = sd(memory, na.rm=TRUE),
     .groups="drop"
   )
@@ -146,7 +144,7 @@ for(metric in c("energy","runtime","memory")){
 }
 
 # ------------------------------
-# Normality Tests
+# Normality Test
 # ------------------------------
 normality_results <- data.frame()
 for(factor_col in cat_cols){
@@ -161,83 +159,5 @@ for(factor_col in cat_cols){
 }
 write.csv(normality_results,"results/normality_tests.csv", row.names=FALSE)
 
-# ------------------------------
-# RQ1: Paired Comparisons & Effect Sizes
-# ------------------------------
-paired_results <- data.frame()
-for(metric in c("energy","runtime","memory")){
-  for(dataset_name in unique(data$dataset)){
-    for(size in unique(data$sample_size)){
-      subset_df <- data %>% filter(dataset==dataset_name, sample_size==size)
-      if(all(c("Tesseract","Paddle") %in% subset_df$ocr_library)){
-        diff_vec <- subset_df %>%
-          pivot_wider(names_from=ocr_library, values_from=!!sym(metric)) %>%
-          mutate(diff=Tesseract-Paddle) %>%
-          pull(diff)
-        shapiro_p <- if(length(diff_vec)>=3) shapiro.test(diff_vec)$p.value else NA
-        if(!is.na(shapiro_p) && shapiro_p>0.05){
-          test_res <- t.test(diff_vec, paired=TRUE)
-          effect_size <- mean(diff_vec)/sd(diff_vec)
-          test_type <- "paired t-test"
-        } else {
-          test_res <- wilcox.test(diff_vec, paired=TRUE)
-          effect_size <- cliff.delta(diff_vec, rep(0,length(diff_vec)))$estimate
-          test_type <- "Wilcoxon signed-rank"
-        }
-        paired_results <- rbind(paired_results,
-                                data.frame(metric=metric,dataset=dataset_name,
-                                           sample_size=size,test=test_type,
-                                           p_value=test_res$p.value,effect_size=effect_size))
-      }
-    }
-  }
-}
-write.csv(paired_results,"results/paired_tests.csv",row.names=FALSE)
-
-# ------------------------------
-# RQ2: Correlations
-# ------------------------------
-cor_results <- data.frame()
-for(metric in c("runtime","memory")){
-  for(dataset_name in unique(data$dataset)){
-    subset_df <- data %>% filter(dataset==dataset_name)
-    if(shapiro.test(subset_df$energy)$p.value>0.05 &&
-       shapiro.test(subset_df[[metric]])$p.value>0.05){
-      cor_test <- cor.test(subset_df$energy, subset_df[[metric]], method="pearson")
-      method_used <- "Pearson"
-    } else {
-      cor_test <- cor.test(subset_df$energy, subset_df[[metric]], method="spearman")
-      method_used <- "Spearman"
-    }
-    cor_results <- rbind(cor_results,data.frame(dataset=dataset_name,
-                                                metric=metric,
-                                                correlation=cor_test$estimate,
-                                                p_value=cor_test$p.value,
-                                                method=method_used))
-  }
-}
-write.csv(cor_results,"results/correlations.csv",row.names=FALSE)
-
-# ------------------------------
-# Generic Pairwise Wilcoxon + Cliff's delta
-# ------------------------------
-pairwise_results <- data.frame()
-for(metric in c("energy","runtime","memory")){
-  for(factor_col in cat_cols){
-    factor_levels <- levels(data[[factor_col]])
-    if(length(factor_levels)==2){
-      x <- data[[metric]][data[[factor_col]]==factor_levels[1]]
-      y <- data[[metric]][data[[factor_col]]==factor_levels[2]]
-      wilcox_p <- wilcox.test(x,y,paired=FALSE)$p.value
-      cliff_d <- cliff.delta(x,y)$estimate
-      pairwise_results <- rbind(pairwise_results,
-                                data.frame(metric=metric,factor=factor_col,
-                                           level1=factor_levels[1],level2=factor_levels[2],
-                                           wilcox_p=wilcox_p,cliff_d=cliff_d))
-    }
-  }
-}
-write.csv(pairwise_results,"results/pairwise_tests_generic.csv",row.names=FALSE)
 
 cat("Analysis complete. Figures in ./figures/, statistics in ./results/\n")
-
