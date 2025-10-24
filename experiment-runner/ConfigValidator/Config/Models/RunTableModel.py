@@ -47,7 +47,7 @@ class RunTableModel:
             if len(self.__exclude_combinations) == 0:
                 return full_list
 
-            to_remove_indices = []
+            to_remove_indices = set()
             for exclusion in self.__exclude_combinations:
                 # Construct the exclusion tuples
                 list_of_lists = []
@@ -61,10 +61,10 @@ class RunTableModel:
                 for idx, elem in enumerate(full_list):
                     for exclude_combo in exclude_combinations_list:
                         if all([exclude_combo[i] == elem[indexes[i]] for i in range(len(indexes))]):
-                            to_remove_indices.append(idx)
+                            to_remove_indices.add(idx)
 
-            to_remove_indices.sort(reverse=True)
-            for idx in to_remove_indices:
+            sorted_indices_to_remove = sorted(list(to_remove_indices), reverse=True)
+            for idx in sorted_indices_to_remove:
                 del full_list[idx]
             return full_list
 

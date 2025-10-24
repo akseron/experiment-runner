@@ -205,7 +205,8 @@ class CLISource(DataSource):
             elif isinstance(v, ValueRef):
                 cmd += f" {p} {v.value}"
             elif isinstance(v, Iterable) and not (isinstance(v, StrEnum) or isinstance(v, str)):
-                cmd += f" {p} {",".join(map(str, v))}"
+                joined_v = ",".join(map(str, v))
+                cmd += f" {p} {joined_v}"
             else:
                 cmd += f" {p} {v}"
 
