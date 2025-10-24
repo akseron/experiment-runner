@@ -48,4 +48,3 @@ if("ocr_library" %in% colnames(data_clean)){
               sep = ",", col.names = FALSE, row.names = FALSE, quote = FALSE)
   cat("Tested libraries exported: tested_libraries.txt\n")
 }
-
